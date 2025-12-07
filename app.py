@@ -1,269 +1,163 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import pickle
+import matplotlib.pyplot as plt
 import plotly.express as px
-import plotly.graph_objects as go
-from sklearn.preprocessing import StandardScaler
 
-# -------------------------
-# Helper loaders & utils
-# -------------------------
+# -----------------------------
+# Load Data and Models
+# -----------------------------
 @st.cache_data
-def load_data(data_path="ev_clustered.csv", centers_path="cluster_centers.csv"):
-    # Load CSV files
-    df = pd.read_csv(data_path)
-
-    # fix latitude column name
-    if "lattitude" in df.columns and "latitude" not in df.columns:
-        df = df.rename(columns={"lattitude": "latitude"})
-    if "lon" in df.columns and "longitude" not in df.columns:
-        df = df.rename(columns={"lon": "longitude"})
-
-    # ensure numeric
-    df["latitude"] = pd.to_numeric(df["latitude"], errors="coerce")
-    df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
-
-    # load cluster centers CSV
-    centers = pd.read_csv(centers_path)
-
-    # normalize center columns
-    if "lat_center" in centers.columns and "latitude" not in centers.columns:
-        centers = centers.rename(columns={"lat_center": "latitude", "lon_center": "longitude"})
-    if "lattitude" in centers.columns and "latitude" not in centers.columns:
-        centers = centers.rename(columns={"lattitude": "latitude"})
-
+def load_data():
+    df = pd.read_csv("ev_clustered.csv")
+    centers = pd.read_csv("cluster_centers.csv")
     return df, centers
 
+df, centers = load_data()
 
-@st.cache_resource
-def load_models(kmeans_path="kmeans_model.pkl", scaler_path="scaler.pkl"):
-    kmeans, scaler = None, None
-    try:
-        with open(kmeans_path, "rb") as f:
-            kmeans = pickle.load(f)
-    except:
-        kmeans = None
-
-    try:
-        with open(scaler_path, "rb") as f:
-            scaler = pickle.load(f)
-    except:
-        scaler = None
-
-    return kmeans, scaler
-
-
-def safe_head(df, n=5):
-    return df.head(n)
-
-
-def kpi_cards(df):
-    total = len(df)
-    states = df["state"].nunique()
-    cities = df["city"].nunique()
-    top_type = df["type"].mode().iloc[0] if "type" in df.columns else "N/A"
-    return total, states, cities, top_type
-
-
-def recommend_for_cluster(cluster_id, df, centers):
-    c_df = df[df["cluster"] == cluster_id]
-    n = len(c_df)
-    top_cities = c_df["city"].value_counts().head(5).to_dict()
-    center = centers.loc[cluster_id] if cluster_id in centers.index else None
-
-    return {
-        "count": n,
-        "top_cities": top_cities,
-        "center": center.to_dict() if center is not None else None,
-    }
-
-
-# -------------------------
-# App Layout and Theme
-# -------------------------
+# -----------------------------
+# Page Config
+# -----------------------------
 st.set_page_config(
-    page_title="⚡ EV Charging Stations — India",
-    layout="wide",
-    initial_sidebar_state="expanded",
+    page_title="EV Charging Stations in India",
+    page_icon="⚡",
+    layout="wide"
 )
 
-st.markdown(
-    """
-    <style>
-    .big-title { font-size:34px; font-weight:700; color:#0b3d91; }
-    .subtle { color:#555; }
-    .metric-card {
-        border-radius:10px;
-        padding:12px;
-        background:rgba(255,255,255,0.9);
-        box-shadow:0 1px 6px rgba(0,0,0,0.08);
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+st.title("⚡ EV Charging Stations Across India")
+st.write("A detailed dashboard analyzing India's EV charging infrastructure with clustering insights.")
 
-# -------------------------
-# Load Data
-# -------------------------
-try:
-    df, centers = load_data()
-except FileNotFoundError:
-    st.error("CSV files not found. Upload `ev_clustered.csv` and `cluster_centers.csv`.")
-    st.stop()
-
-kmeans, scaler = load_models()
-
-# -------------------------
+# -----------------------------
 # Sidebar Filters
-# -------------------------
-st.sidebar.title("Filters & Tools")
+# -----------------------------
+st.sidebar.header("Filters")
 
-state_list = ["All"] + sorted(df["state"].dropna().unique())
-sel_state = st.sidebar.selectbox("State", state_list)
+state_filter = st.sidebar.multiselect(
+    "Select State(s)", 
+    sorted(df["state"].unique()),
+)
 
-df_filtered = df[df["state"] == sel_state] if sel_state != "All" else df.copy()
+city_filter = st.sidebar.multiselect(
+    "Select City(s)", 
+    sorted(df["city"].unique()),
+)
 
-city_list = ["All"] + sorted(df_filtered["city"].dropna().unique())
-sel_city = st.sidebar.selectbox("City", city_list)
+cluster_filter = st.sidebar.multiselect(
+    "Select Cluster (0–4)", 
+    sorted(df["cluster"].unique()),
+)
 
-if sel_city != "All":
-    df_filtered = df_filtered[df_filtered["city"] == sel_city]
+filtered_df = df.copy()
 
-cluster_list = ["All"] + sorted(df["cluster"].unique())
-sel_cluster = st.sidebar.selectbox("Cluster", cluster_list)
+if state_filter:
+    filtered_df = filtered_df[filtered_df["state"].isin(state_filter)]
 
-if sel_cluster != "All":
-    df_filtered = df_filtered[df_filtered["cluster"] == int(sel_cluster)]
+if city_filter:
+    filtered_df = filtered_df[filtered_df["city"].isin(city_filter)]
 
-# -------------------------
-# Header & KPIs
-# -------------------------
-col1, col2 = st.columns([3, 1])
-with col1:
-    st.markdown('<div class="big-title">EV Charging Stations — India Dashboard ⚡</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtle">Interactive geospatial dashboard + clustering + insights.</div>', unsafe_allow_html=True)
-with col2:
-    st.image("https://static.streamlit.io/examples/cat.jpg", width=90)
+if cluster_filter:
+    filtered_df = filtered_df[filtered_df["cluster"].isin(cluster_filter)]
 
-st.markdown("___")
+st.subheader("📊 Filtered Dataset Preview")
+st.dataframe(filtered_df.head(20))
 
-total, num_states, num_cities, top_type = kpi_cards(df)
+# -----------------------------
+# Metrics Section
+# -----------------------------
+st.subheader("📌 Key Metrics")
 
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Total Stations", f"{total:,}")
-c2.metric("States Covered", num_states)
-c3.metric("Cities Covered", num_cities)
-c4.metric("Most Common Charger", f"{top_type} kW")
+col1, col2, col3, col4 = st.columns(4)
 
-# -------------------------
-# Tabs
-# -------------------------
-tabs = st.tabs(["Overview", "Map", "Clusters", "Insights", "Predict"])
+col1.metric("Total Stations", len(df))
+col2.metric("Unique States", df["state"].nunique())
+col3.metric("Unique Cities", df["city"].nunique())
+col4.metric("Clusters", df["cluster"].nunique())
 
-# -------- OVERVIEW TAB -------- #
-with tabs[0]:
-    st.subheader("Dataset Preview")
-    st.dataframe(safe_head(df_filtered, 15))
+# -----------------------------
+# Map Visualization
+# -----------------------------
+st.subheader("🗺️ EV Station Map (Plotly)")
 
-    st.markdown("### Top States & Cities")
-    colA, colB = st.columns(2)
+fig = px.scatter_mapbox(
+    filtered_df,
+    lat="latitude",
+    lon="longitude",
+    color="cluster",
+    zoom=4,
+    mapbox_style="open-street-map",
+    hover_name="name",
+    height=600
+)
+st.plotly_chart(fig, use_container_width=True)
 
-    with colA:
-        state_counts = df["state"].value_counts().head(15)
-        fig = px.bar(
-            x=state_counts.index,
-            y=state_counts.values,
-            title="Top 15 States",
-            labels={"x": "State", "y": "Stations"},
-            color=state_counts.values,
-            color_continuous_scale="Blues",
-        )
-        fig.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig, use_container_width=True)
+# -----------------------------
+# Bar Charts
+# -----------------------------
+st.subheader("📍 Top States by Charging Stations")
 
-    with colB:
-        city_counts = df["city"].value_counts().head(20)
-        fig2 = px.bar(
-            x=city_counts.values,
-            y=city_counts.index,
-            orientation="h",
-            title="Top 20 Cities",
-            labels={"x": "Stations", "y": "City"},
-            color=city_counts.values,
-            color_continuous_scale="Oranges",
-        )
-        st.plotly_chart(fig2, use_container_width=True)
+state_counts = df["state"].value_counts().head(10)
+fig_state = px.bar(
+    state_counts,
+    x=state_counts.index,
+    y=state_counts.values,
+    labels={"x": "State", "y": "Stations"},
+    color=state_counts.values,
+    color_continuous_scale="Oranges"
+)
+st.plotly_chart(fig_state, use_container_width=True)
 
-# -------- MAP TAB -------- #
-with tabs[1]:
-    st.subheader("Interactive Map — EV Charging Stations")
+st.subheader("🏙️ Top Cities by Charging Stations")
 
-    fig_map = px.scatter_mapbox(
-        df_filtered,
-        lat="latitude",
-        lon="longitude",
-        color="cluster",
-        hover_name="name",
-        zoom=4,
-        height=700,
-        mapbox_style="open-street-map",
-        color_continuous_scale=px.colors.qualitative.T10,
-    )
-    st.plotly_chart(fig_map, use_container_width=True)
+city_counts = df["city"].value_counts().head(10)
+fig_city = px.bar(
+    city_counts,
+    x=city_counts.index,
+    y=city_counts.values,
+    labels={"x": "City", "y": "Stations"},
+    color=city_counts.values,
+    color_continuous_scale="Teal"
+)
+st.plotly_chart(fig_city, use_container_width=True)
 
-# -------- CLUSTERS TAB -------- #
-with tabs[2]:
-    st.subheader("Cluster Overview")
-    st.table(df.groupby("cluster").size().reset_index(name="count"))
+# -----------------------------
+# Charging Type Distribution
+# -----------------------------
+st.subheader("🔌 Charging Type Distribution")
 
-    st.markdown("### Cluster Centers")
-    fig_cent = px.scatter_mapbox(
-        centers,
-        lat="latitude",
-        lon="longitude",
-        zoom=4,
-        height=500,
-        mapbox_style="open-street-map",
-    )
-    fig_cent.update_traces(marker=dict(size=15, color="black", symbol="x"))
-    st.plotly_chart(fig_cent, use_container_width=True)
+type_counts = df["type"].value_counts().sort_index()
+fig_type = px.bar(
+    type_counts,
+    x=type_counts.index.astype(str),
+    y=type_counts.values,
+    labels={"x": "Type (kW)", "y": "Count"},
+    color=type_counts.values,
+    color_continuous_scale="Blues"
+)
+st.plotly_chart(fig_type, use_container_width=True)
 
-# -------- INSIGHTS TAB -------- #
-with tabs[3]:
-    st.subheader("Insights & Recommendations")
-    st.write("- High concentration: Bangalore, Delhi, New Delhi, Chennai, Mumbai.")
-    st.write("- Under-served: North-East, Rajasthan interiors, Himalayan belt.")
-    st.write("- Most common chargers: 7 kW, 6 kW, 12 kW.")
-    st.write("### Recommendations")
-    st.write("1. Add stations in under-served regions.")
-    st.write("2. Deploy fast-chargers for EV adoption.")
-    st.write("3. Strengthen highway EV corridors.")
+# -----------------------------
+# Cluster Centers
+# -----------------------------
+st.subheader("📍 Cluster Centers (Lat/Lon)")
 
-# -------- PREDICT TAB -------- #
-with tabs[4]:
-    st.subheader("Predict Cluster for New Location")
+st.dataframe(centers)
 
-    lat_in = st.number_input("Latitude", value=20.0, step=0.01)
-    lon_in = st.number_input("Longitude", value=77.0, step=0.01)
+# -----------------------------
+# Insights Section
+# -----------------------------
+st.subheader("📢 Project Insights")
 
-    if kmeans is None or scaler is None:
-        st.warning("Prediction model not loaded. Add kmeans_model.pkl & scaler.pkl.")
-    else:
-        if st.button("Predict Cluster"):
-            inp = np.array([[lat_in, lon_in]])
-            scaled = scaler.transform(inp)
-            pred = int(kmeans.predict(scaled)[0])
-            st.success(f"Predicted Cluster: {pred}")
+st.write("""
+### Key Observations:
+- Bangalore, Delhi, New Delhi, Chennai, and Mumbai have the highest EV charging density.
+- North-East, Rajasthan interior, and hilly states show significant EV infrastructure gaps.
+- 7 kW chargers dominate the market, followed by 6 kW and 12 kW.
+- K-Means clustering (k=5) reveals clear regional EV adoption zones.
 
-# -------------------------
-# Footer Downloads
-# -------------------------
-st.markdown("---")
-st.subheader("Download Cleaned CSV")
-csv = df.to_csv(index=False).encode("utf-8")
-st.download_button("Download Dataset", csv, "ev_clustered.csv", "text/csv")
+### Recommendations:
+- Increase EV stations in under-served regions.
+- Add more high kW fast chargers.
+- Strengthen highway EV corridors between major metro cities.
+""")
 
-st.markdown("Made with ❤️  by Your Name")
-
+st.success("Dashboard loaded successfully!")
