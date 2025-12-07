@@ -1,13 +1,13 @@
-# ⚡ EV Infrastructure Analytics & Optimization Platform
+#  EV Infrastructure Analytics & Optimization Platform
 
-A geospatial analytics and machine learning project designed to evaluate and optimize India's EV charging infrastructure.  
-The platform analyzes 1,500+ EV charging stations using data cleaning, exploratory analysis, visual insights, and K-Means clustering to identify high-density zones, underserved regions, and opportunities for network expansion.
+A project focused on understanding and improving India’s EV charging network.
+It processes data from 1,500+ charging stations using data cleaning, visualization, and K-Means clustering to identify high density areas, low coverage regions, and opportunities for infrastructure expansion.
 
 ---
 
 ## 📌 Project Overview
 - Cleaned, standardized, and validated EV charging station data (coordinates, duplicates, city names).
-- Conducted Exploratory Data Analysis (EDA) to uncover geographic and charger-type patterns.
+- Conducted Exploratory Data Analysis (EDA) to uncover geographic and charger type patterns.
 - Applied **K-Means clustering (k = 5)** to segment India's EV infrastructure into meaningful regions.
 - Mapped hotspots, sparse coverage zones, and regional demand clusters.
 - Exported processed datasets, models, and cluster outputs for deployment and further analysis.
