@@ -19,13 +19,13 @@ df, centers = load_data()
 # Page Config
 # -----------------------------
 st.set_page_config(
-    page_title="EV Charging Stations in India",
-    page_icon="⚡",
+    page_title="EV Infrastructure",
+    page_icon="🗺️",
     layout="wide"
 )
 
-st.title("⚡ EV Charging Stations Across India")
-st.write("A detailed dashboard analyzing India's EV charging infrastructure with clustering insights.")
+st.title("⚡EV Infrastructure Analytics & Optimization Platform")
+st.write("An dashboard that analyzes the distribution of EV charging stations across India using data visualization and clustering.")
 
 # -----------------------------
 # Sidebar Filters
@@ -58,7 +58,7 @@ if city_filter:
 if cluster_filter:
     filtered_df = filtered_df[filtered_df["cluster"].isin(cluster_filter)]
 
-st.subheader("📊 Filtered Dataset Preview")
+st.subheader("📄 Filtered Dataset Preview")
 st.dataframe(filtered_df.head(20))
 
 # -----------------------------
@@ -76,7 +76,7 @@ col4.metric("Clusters", df["cluster"].nunique())
 # -----------------------------
 # Map Visualization
 # -----------------------------
-st.subheader("🗺️ EV Station Map (Plotly)")
+st.subheader("🔸EV Station Map")
 
 fig = px.scatter_mapbox(
     filtered_df,
@@ -93,7 +93,7 @@ st.plotly_chart(fig, use_container_width=True)
 # -----------------------------
 # Bar Charts
 # -----------------------------
-st.subheader("📍 Top States by Charging Stations")
+st.subheader("📍 Top States by EV Charging Station Count")
 
 state_counts = df["state"].value_counts().head(10)
 fig_state = px.bar(
@@ -106,7 +106,7 @@ fig_state = px.bar(
 )
 st.plotly_chart(fig_state, use_container_width=True)
 
-st.subheader("🏙️ Top Cities by Charging Stations")
+st.subheader("📍 Top Cities by EV Charging Station Count")
 
 city_counts = df["city"].value_counts().head(10)
 fig_city = px.bar(
@@ -122,7 +122,7 @@ st.plotly_chart(fig_city, use_container_width=True)
 # -----------------------------
 # Charging Type Distribution
 # -----------------------------
-st.subheader("🔌 Charging Type Distribution")
+st.subheader("🔌 EV Charger Power Distribution")
 
 type_counts = df["type"].value_counts().sort_index()
 fig_type = px.bar(
@@ -138,26 +138,24 @@ st.plotly_chart(fig_type, use_container_width=True)
 # -----------------------------
 # Cluster Centers
 # -----------------------------
-st.subheader("📍 Cluster Centers (Lat/Lon)")
+st.subheader("🎯 Cluster Center Coordinates")
 
 st.dataframe(centers)
 
 # -----------------------------
 # Insights Section
 # -----------------------------
-st.subheader("📢 Project Insights")
+st.subheader("💡Project Insights")
 
 st.write("""
-### Key Observations:
-- Bangalore, Delhi, New Delhi, Chennai, and Mumbai have the highest EV charging density.
-- North-East, Rajasthan interior, and hilly states show significant EV infrastructure gaps.
-- 7 kW chargers dominate the market, followed by 6 kW and 12 kW.
-- K-Means clustering (k=5) reveals clear regional EV adoption zones.
+### Observations:
+1.Bangalore, Delhi, New Delhi, Chennai, and Mumbai have the highest EV charging density.
+2.North-East, Rajasthan interior, and hilly states show significant EV infrastructure gaps.
+3.7 kW chargers dominate the market, followed by 6 kW and 12 kW.
+4.K-Means clustering (k=5) reveals clear regional EV adoption zones.
 
 ### Recommendations:
-- Increase EV stations in under-served regions.
-- Add more high kW fast chargers.
-- Strengthen highway EV corridors between major metro cities.
+1.Increase EV stations in under-served regions.
+2.Add more high kW fast chargers.
+3.Strengthen highway EV corridors between major metro cities.
 """)
-
-st.success("Dashboard loaded successfully!")
